@@ -1,17 +1,23 @@
-use crate::objects::Object;
+use crate::objects::{Absorber, Ray};
 
 pub struct Scene {
-    pub objects: Vec<Object>,
+    pub absorbers: Vec<Absorber>,
+    pub rays: Vec<Ray>,
 }
 
 impl Scene {
     pub fn new() -> Self {
         Self {
-            objects: vec![],
+            absorbers: vec![],
+            rays: vec![],
         }
     }
 
-    pub fn add_object(&mut self, object: impl Into<Object>) {
-        self.objects.push(object.into());
+    pub fn add_absorber(&mut self, absorber: impl Into<Absorber>) {
+        self.absorbers.push(absorber.into());
+    }
+
+    pub fn add_ray(&mut self, ray: Ray) {
+        self.rays.push(ray);
     }
 }

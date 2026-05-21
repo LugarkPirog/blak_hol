@@ -25,8 +25,11 @@ impl Renderer {
         self.framebuffer.clear();
         self.draw_cmds.clear();
 
-        for object in &scene.objects {
-            object.draw_cmds(&mut self.draw_cmds);
+        for absorber in &scene.absorbers {
+            absorber.draw_cmds(&mut self.draw_cmds);
+        }
+        for ray in &scene.rays {
+            ray.draw_cmds(&mut self.draw_cmds);
         }
 
         for cmd in &self.draw_cmds {

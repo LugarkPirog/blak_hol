@@ -6,38 +6,27 @@ use crate::draw::DrawCmd;
 
 const RAY_TRAIL_LEN: usize = 30;
 
-
-pub enum Object {
+pub enum Absorber {
     BlackHole(BlackHole),
-    Ray(Ray),
 }
 
-
-impl Object {
-    pub fn step(&mut self, dt: f32) {
+impl Absorber {
+    pub fn contains(&self, point: Vec3) -> bool {
         match self {
-            Object::BlackHole(_) => {}
-            Object::Ray(ray) => ray.step(dt),
+            Absorber::BlackHole(black_hole) => black_hole.contains(point),
         }
     }
 
     pub fn draw_cmds(&self, out: &mut Vec<DrawCmd>) {
         match self {
-            Object::BlackHole(black_hole) => black_hole.draw_cmds(out),
-            Object::Ray(ray) => ray.draw_cmds(out),
+            Absorber::BlackHole(black_hole) => black_hole.draw_cmds(out),
         }
     }
 }
 
-impl From<BlackHole> for Object {
+impl From<BlackHole> for Absorber {
     fn from(black_hole: BlackHole) -> Self {
-        Object::BlackHole(black_hole)
-    }
-}
-
-impl From<Ray> for Object {
-    fn from(ray: Ray) -> Self {
-        Object::Ray(ray)
+        Absorber::BlackHole(black_hole)
     }
 }
 
@@ -49,13 +38,17 @@ pub struct BlackHole {
 
 impl BlackHole {
     pub fn new(center: Vec3, radius: f32, mass: f32) -> Self {
-        Self { center, radius, mass }
+        Self {
+            center,
+            radius,
+            mass,
+        }
     }
 
-    pub fn contains(&self, pixel: Vec3) -> bool {
-        (pixel.x - self.center.x).powf(2.0)
-            + (pixel.y - self.center.y).powf(2.0)
-            + (pixel.z - self.center.z).powf(2.0)
+    pub fn contains(&self, point: Vec3) -> bool {
+        (point.x - self.center.x).powf(2.0)
+            + (point.y - self.center.y).powf(2.0)
+            + (point.z - self.center.z).powf(2.0)
             <= self.radius.powf(2.0)
     }
 
@@ -73,6 +66,7 @@ pub struct Ray {
     pub direction: Vec3,
     pub draw_size: i32,
     trail: VecDeque<Vec3>,
+    absorbed: bool,
 }
 
 impl Ray {
@@ -84,6 +78,7 @@ impl Ray {
             direction,
             draw_size: 1,
             trail,
+            absorbed: false,
         }
     }
 
@@ -128,8 +123,19 @@ impl Ray {
             size: self.draw_size,
         });
     }
-}
 
+    pub fn is_absorbed(&self) -> bool {
+        self.absorbed
+    }
+
+    pub fn mark_as_absorbed(&mut self) {
+        self.absorbed = true;
+    }
+
+    pub fn pos(&self) -> Vec3 {
+        self.pos
+    }
+}
 
 fn trail_brightness(index: usize, len: usize) -> f32 {
     if len <= 1 {

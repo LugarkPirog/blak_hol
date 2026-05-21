@@ -42,7 +42,7 @@ fn main() {
     let mut engine = Engine::new();
     let mut renderer = Renderer::new(framebuffer, window, camera);
 
-    scene.add_object(BlackHole::new(
+    scene.add_absorber(BlackHole::new(
         Vec3::new(0.0, 0.0, 0.0),
         BLACK_HOLE_RADIUS,
         BLACK_HOLE_MASS,
@@ -54,7 +54,7 @@ fn main() {
     for i in 0..N_RAYS {
         let t = i as f32 / (N_RAYS - 1) as f32;
         let y = -spawn_y_span + t * 2.0 * spawn_y_span;
-        scene.add_object(Ray::new(
+        scene.add_ray(Ray::new(
             Vec3::new(spawn_x, y, 0.0),
             Vec3::new(1.0, 0.0, 0.0),
         ));
