@@ -3,6 +3,7 @@ use std::thread::sleep;
 use std::time::Duration;
 
 mod base_classes;
+mod draw;
 mod objects;
 mod framebuffer;
 mod scene;

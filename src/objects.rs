@@ -1,14 +1,16 @@
 use std::collections::VecDeque;
 
 use crate::base_classes::{Color, Vec3};
-use crate::framebuffer::Framebuffer;
+use crate::draw::DrawCmd;
 
 const RAY_TRAIL_LEN: usize = 30;
+
 
 pub enum Object {
     BlackHole(BlackHole),
     Ray(Ray),
 }
+
 
 impl Object {
     pub fn step(&mut self, dt: f32) {
@@ -18,10 +20,10 @@ impl Object {
         }
     }
 
-    pub fn draw(&self, framebuffer: &mut Framebuffer) {
+    pub fn draw_cmds(&self, out: &mut Vec<DrawCmd>) {
         match self {
-            Object::BlackHole(black_hole) => black_hole.draw(framebuffer),
-            Object::Ray(ray) => ray.draw(framebuffer),
+            Object::BlackHole(black_hole) => black_hole.draw_cmds(out),
+            Object::Ray(ray) => ray.draw_cmds(out),
         }
     }
 }
@@ -55,19 +57,12 @@ impl BlackHole {
             <= self.radius.powf(2.0)
     }
 
-    pub fn draw(&self, framebuffer: &mut Framebuffer) {
-        for y in 0..framebuffer.height {
-            for x in 0..framebuffer.width {
-                let pixel = Vec3::new(
-                    x as f32 - framebuffer.width as f32 / 2.0,
-                    framebuffer.height as f32 / 2.0 - y as f32,
-                    0.0,
-                );
-                if self.contains(pixel) {
-                    framebuffer.set_pixel(x, y, Color::new(255, 0, 0));
-                }
-            }
-        }
+    pub fn draw_cmds(&self, out: &mut Vec<DrawCmd>) {
+        out.push(DrawCmd::FilledDisc {
+            center: self.center,
+            radius: self.radius,
+            color: Color::new(255, 0, 0),
+        });
     }
 }
 
@@ -98,65 +93,39 @@ impl Ray {
         }
     }
 
-    pub fn draw(&self, framebuffer: &mut Framebuffer) {
+    pub fn draw_cmds(&self, out: &mut Vec<DrawCmd>) {
         let n = self.trail.len();
         if n == 0 {
-            self.draw_point(framebuffer, self.pos, 1.0);
+            out.push(DrawCmd::Point {
+                pos: self.pos,
+                brightness: 1.0,
+                size: self.draw_size,
+            });
             return;
         }
-
         for i in 0..n - 1 {
-            let b0 = trail_brightness(i, n);
-            let b1 = trail_brightness(i + 1, n);
-            self.draw_segment(framebuffer, self.trail[i], self.trail[i + 1], b0, b1);
+            out.push(DrawCmd::GradientSegment {
+                from: self.trail[i],
+                to: self.trail[i + 1],
+                brightness_from: trail_brightness(i, n),
+                brightness_to: trail_brightness(i + 1, n),
+                size: self.draw_size,
+            });
         }
-
-        let tail_brightness = trail_brightness(n - 1, n);
-        self.draw_segment(framebuffer, self.trail[n - 1], self.pos, tail_brightness, 1.0);
-    }
-
-    fn draw_segment(
-        &self,
-        framebuffer: &mut Framebuffer,
-        from: Vec3,
-        to: Vec3,
-        brightness_from: f32,
-        brightness_to: f32,
-    ) {
-        let dx = to.x - from.x;
-        let dy = to.y - from.y;
-        let steps = dx.hypot(dy).ceil() as i32;
-        let steps = steps.max(1);
-
-        for s in 0..=steps {
-            let t = s as f32 / steps as f32;
-            let p = Vec3::new(from.x + dx * t, from.y + dy * t, 0.0);
-            let brightness = brightness_from + (brightness_to - brightness_from) * t;
-            self.draw_point(framebuffer, p, brightness);
-        }
-    }
-
-    fn draw_point(&self, framebuffer: &mut Framebuffer, pos: Vec3, brightness: f32) {
-        let size = self.draw_size;
-        let half = size as f32 / 2.0;
-        let color = Color::white_scaled(brightness);
-
-        for i in 0..size {
-            for j in 0..size {
-                let x = (pos.x + i as f32 - half - framebuffer.width as f32 / 2.0) as usize;
-                let y = (pos.y + j as f32 - half - framebuffer.height as f32 / 2.0) as usize;
-                if x < framebuffer.width && y < framebuffer.height {
-                    framebuffer.set_pixel(x, y, color);
-                }
-            }
-        }
+        out.push(DrawCmd::GradientSegment {
+            from: self.trail[n - 1],
+            to: self.pos,
+            brightness_from: trail_brightness(n - 1, n),
+            brightness_to: 1.0,
+            size: self.draw_size,
+        });
     }
 }
+
 
 fn trail_brightness(index: usize, len: usize) -> f32 {
     if len <= 1 {
         return 1.0;
     }
-    // 0 = oldest (dim), len-1 = newest point in trail (bright)
     (index + 1) as f32 / len as f32
 }
