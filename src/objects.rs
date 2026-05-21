@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 
 use crate::base_classes::{Color, Vec3};
+use crate::constants::C;
 use crate::draw::DrawCmd;
 
 const RAY_TRAIL_LEN: usize = 30;
@@ -43,11 +44,12 @@ impl From<Ray> for Object {
 pub struct BlackHole {
     pub center: Vec3,
     pub radius: f32,
+    pub mass: f32,
 }
 
 impl BlackHole {
-    pub fn new(center: Vec3, radius: f32) -> Self {
-        Self { center, radius }
+    pub fn new(center: Vec3, radius: f32, mass: f32) -> Self {
+        Self { center, radius, mass }
     }
 
     pub fn contains(&self, pixel: Vec3) -> bool {
@@ -86,7 +88,13 @@ impl Ray {
     }
 
     pub fn step(&mut self, dt: f32) {
-        self.pos += self.direction * dt;
+        let dir_len = (self.direction.x * self.direction.x
+            + self.direction.y * self.direction.y
+            + self.direction.z * self.direction.z)
+            .sqrt();
+        if dir_len > 0.0 {
+            self.pos += self.direction * (C * dt / dir_len);
+        }
         self.trail.push_back(self.pos);
         while self.trail.len() > RAY_TRAIL_LEN {
             self.trail.pop_front();

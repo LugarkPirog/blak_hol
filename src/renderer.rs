@@ -1,22 +1,22 @@
 use minifb::Window;
-use crate::draw::{execute, DrawCmd, Viewport};
+use crate::camera::Camera;
+use crate::draw::{execute, DrawCmd};
 use crate::framebuffer::Framebuffer;
 use crate::scene::Scene;
 
 pub struct Renderer {
     framebuffer: Framebuffer,
     window: Window,
-    viewport: Viewport,
+    camera: Camera,
     draw_cmds: Vec<DrawCmd>,
 }
 
 impl Renderer {
-    pub fn new(framebuffer: Framebuffer, window: Window) -> Self {
-        let viewport = Viewport::new(framebuffer.width, framebuffer.height);
+    pub fn new(framebuffer: Framebuffer, window: Window, camera: Camera) -> Self {
         Self {
             framebuffer,
             window,
-            viewport,
+            camera,
             draw_cmds: Vec::new(),
         }
     }
@@ -30,7 +30,7 @@ impl Renderer {
         }
 
         for cmd in &self.draw_cmds {
-            execute(cmd, &mut self.framebuffer, &self.viewport);
+            execute(cmd, &mut self.framebuffer, &self.camera);
         }
 
         self.window

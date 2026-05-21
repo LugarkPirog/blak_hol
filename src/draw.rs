@@ -1,4 +1,5 @@
 use crate::base_classes::{Color, Vec3};
+use crate::camera::Camera;
 use crate::framebuffer::Framebuffer;
 
 pub enum DrawCmd {
@@ -21,41 +22,18 @@ pub enum DrawCmd {
     },
 }
 
-pub struct Viewport {
-    pub width: usize,
-    pub height: usize,
-}
-
-impl Viewport {
-    pub fn new(width: usize, height: usize) -> Self {
-        Self { width, height }
-    }
-
-    pub fn screen_to_world(&self, x: usize, y: usize) -> Vec3 {
-        Vec3::new(
-            x as f32 - self.width as f32 / 2.0,
-            self.height as f32 / 2.0 - y as f32,
-            0.0,
-        )
-    }
-
-    fn ray_pos_to_screen(&self, pos: Vec3) -> (f32, f32) {
-        (pos.x - self.width as f32 / 2.0, pos.y - self.height as f32 / 2.0)
-    }
-}
-
-pub fn execute(cmd: &DrawCmd, framebuffer: &mut Framebuffer, viewport: &Viewport) {
+pub fn execute(cmd: &DrawCmd, framebuffer: &mut Framebuffer, camera: &Camera) {
     match cmd {
         DrawCmd::FilledDisc {
             center,
             radius,
             color,
-        } => draw_filled_disc(framebuffer, viewport, *center, *radius, *color),
+        } => draw_filled_disc(framebuffer, camera, *center, *radius, *color),
         DrawCmd::Point {
             pos,
             brightness,
             size,
-        } => draw_point(framebuffer, viewport, *pos, *brightness, *size),
+        } => draw_point(framebuffer, camera, *pos, *brightness, *size),
         DrawCmd::GradientSegment {
             from,
             to,
@@ -64,7 +42,7 @@ pub fn execute(cmd: &DrawCmd, framebuffer: &mut Framebuffer, viewport: &Viewport
             size,
         } => draw_gradient_segment(
             framebuffer,
-            viewport,
+            camera,
             *from,
             *to,
             *brightness_from,
@@ -74,25 +52,30 @@ pub fn execute(cmd: &DrawCmd, framebuffer: &mut Framebuffer, viewport: &Viewport
     }
 }
 
-fn contains_disc(center: Vec3, radius: f32, pixel: Vec3) -> bool {
-    (pixel.x - center.x).powf(2.0)
-        + (pixel.y - center.y).powf(2.0)
-        + (pixel.z - center.z).powf(2.0)
-        <= radius.powf(2.0)
-}
-
 fn draw_filled_disc(
     framebuffer: &mut Framebuffer,
-    viewport: &Viewport,
+    camera: &Camera,
     center: Vec3,
     radius: f32,
     color: Color,
 ) {
-    for y in 0..framebuffer.height {
-        for x in 0..framebuffer.width {
-            let pixel = viewport.screen_to_world(x, y);
-            if contains_disc(center, radius, pixel) {
-                framebuffer.set_pixel(x, y, color);
+    let (cx, cy) = camera.world_to_screen(center);
+    let r_px = camera.world_length_to_pixels(radius);
+    let r_px_i = r_px.ceil() as i32;
+
+    for dy in -r_px_i..=r_px_i {
+        for dx in -r_px_i..=r_px_i {
+            if (dx * dx + dy * dy) as f32 > r_px * r_px {
+                continue;
+            }
+            let x = cx + dx as f32;
+            let y = cy + dy as f32;
+            if x >= 0.0
+                && y >= 0.0
+                && (x as usize) < framebuffer.width
+                && (y as usize) < framebuffer.height
+            {
+                framebuffer.set_pixel(x as usize, y as usize, color);
             }
         }
     }
@@ -100,21 +83,25 @@ fn draw_filled_disc(
 
 fn draw_point(
     framebuffer: &mut Framebuffer,
-    viewport: &Viewport,
+    camera: &Camera,
     pos: Vec3,
     brightness: f32,
     size: i32,
 ) {
     let half = size as f32 / 2.0;
     let color = Color::white_scaled(brightness);
-    let (base_x, base_y) = viewport.ray_pos_to_screen(pos);
+    let (base_x, base_y) = camera.world_to_screen(pos);
 
     for i in 0..size {
         for j in 0..size {
-            let x = (base_x + i as f32 - half) as usize;
-            let y = (base_y + j as f32 - half) as usize;
-            if x < framebuffer.width && y < framebuffer.height {
-                framebuffer.set_pixel(x, y, color);
+            let x = (base_x + i as f32 - half) as i32;
+            let y = (base_y + j as f32 - half) as i32;
+            if x >= 0
+                && y >= 0
+                && (x as usize) < framebuffer.width
+                && (y as usize) < framebuffer.height
+            {
+                framebuffer.set_pixel(x as usize, y as usize, color);
             }
         }
     }
@@ -122,7 +109,7 @@ fn draw_point(
 
 fn draw_gradient_segment(
     framebuffer: &mut Framebuffer,
-    viewport: &Viewport,
+    camera: &Camera,
     from: Vec3,
     to: Vec3,
     brightness_from: f32,
@@ -131,13 +118,14 @@ fn draw_gradient_segment(
 ) {
     let dx = to.x - from.x;
     let dy = to.y - from.y;
-    let steps = dx.hypot(dy).ceil() as i32;
-    let steps = steps.max(1);
+    let world_steps = dx.hypot(dy);
+    let pixel_steps = camera.world_length_to_pixels(world_steps).ceil() as i32;
+    let steps = pixel_steps.max(1);
 
     for s in 0..=steps {
         let t = s as f32 / steps as f32;
         let p = Vec3::new(from.x + dx * t, from.y + dy * t, 0.0);
         let brightness = brightness_from + (brightness_to - brightness_from) * t;
-        draw_point(framebuffer, viewport, p, brightness, size);
+        draw_point(framebuffer, camera, p, brightness, size);
     }
 }
