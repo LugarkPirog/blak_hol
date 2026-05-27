@@ -11,6 +11,13 @@ impl Vec3 {
     pub fn new(x: f32, y: f32, z: f32) -> Self {
         Self { x, y, z }
     }
+    
+    pub fn length(&self) -> f32 {
+        let x = self.x;
+        let y = self.y;
+        let z = self.z;
+        (x * x + y * y + z * z).sqrt()
+    }
 }
 
 impl Add for Vec3 {
@@ -65,5 +72,28 @@ impl Color {
 
     pub fn to_u32(&self) -> u32 {
         (self.r as u32) << 16 | (self.g as u32) << 8 | (self.b as u32)
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct PolarCoord {
+    pub radius: f32,
+    pub phi: f32,
+    pub theta: f32,
+}
+
+impl PolarCoord {
+    pub fn new(radius: f32, phi: f32, theta: f32) -> Self {
+        Self { radius, phi, theta }
+    }
+}
+
+impl From<Vec3> for PolarCoord {
+    fn from(vec: Vec3) -> Self {
+        let l = vec.length();
+        let radius = l;
+        let phi = vec.y.atan2(vec.x);
+        let theta = (vec.z / l).acos();
+        Self::new(radius, phi, theta)
     }
 }

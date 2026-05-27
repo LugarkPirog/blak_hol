@@ -12,7 +12,7 @@ mod scene;
 mod engine;
 mod renderer;
 
-use crate::base_classes::Vec3;
+use crate::base_classes::{PolarCoord, Vec3};
 use crate::camera::Camera;
 use crate::constants::{
     BLACK_HOLE_MASS, BLACK_HOLE_RADIUS, SIM_DT, VIEW_RADIUS_MULT,
@@ -28,6 +28,8 @@ const HEIGHT: usize = 600;
 const N_RAYS: usize = 20;
 
 fn main() {
+    let polar = PolarCoord::from(Vec3::new(1.0, 1.0, 0.0));
+    println!("polar: {:?}", polar);
     let view_half_extent = BLACK_HOLE_RADIUS * VIEW_RADIUS_MULT;
     let camera = Camera::looking_at_xy_plane(
         Vec3::new(0.0, 0.0, 0.0),

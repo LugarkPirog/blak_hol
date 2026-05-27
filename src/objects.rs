@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use crate::base_classes::{Color, Vec3};
+use crate::base_classes::{Color, PolarCoord, Vec3};
 use crate::constants::C;
 use crate::draw::DrawCmd;
 
@@ -62,8 +62,10 @@ impl BlackHole {
 }
 
 pub struct Ray {
-    pub pos: Vec3,
-    pub direction: Vec3,
+    pub r: f32,
+    pub theta: f32,
+    pub dr: f32,
+    pub dtheta: f32,
     pub draw_size: i32,
     trail: VecDeque<Vec3>,
     absorbed: bool,
@@ -71,36 +73,62 @@ pub struct Ray {
 
 impl Ray {
     pub fn new(pos: Vec3, direction: Vec3) -> Self {
+        let pos_polar = PolarCoord::from(pos);
+        let r = pos_polar.radius;
+        let phi = pos_polar.phi;
+        let dir_len = direction.length();
+        let (dr, dtheta) = if dir_len > 0.0 {
+            let nx = direction.x / dir_len;
+            let ny = direction.y / dir_len;
+            let dr = nx * phi.cos() + ny * phi.sin();
+            let dtheta = if r > 0.0 {
+                (-nx * phi.sin() + ny * phi.cos()) / r
+            } else {
+                0.0
+            };
+            (dr, dtheta)
+        } else {
+            (0.0, 0.0)
+        };
+
         let mut trail = VecDeque::with_capacity(RAY_TRAIL_LEN);
         trail.push_back(pos);
         Self {
-            pos,
-            direction,
+            r,
+            theta: phi,
+            dr,
+            dtheta,
             draw_size: 1,
             trail,
             absorbed: false,
         }
     }
 
-    pub fn step(&mut self, dt: f32) {
-        let dir_len = (self.direction.x * self.direction.x
-            + self.direction.y * self.direction.y
-            + self.direction.z * self.direction.z)
-            .sqrt();
-        if dir_len > 0.0 {
-            self.pos += self.direction * (C * dt / dir_len);
-        }
-        self.trail.push_back(self.pos);
+    pub fn step(&mut self, dl: f32) {
+        let dt = C * dl;
+        self.r += self.dr * dt;
+        self.theta += self.dtheta * dt;
+
+        self.trail.push_back(self.pos());
         while self.trail.len() > RAY_TRAIL_LEN {
             self.trail.pop_front();
         }
     }
 
+    pub fn pos(&self) -> Vec3 {
+        Vec3::new(
+            self.r * self.theta.cos(),
+            self.r * self.theta.sin(),
+            0.0,
+        )
+    }
+
     pub fn draw_cmds(&self, out: &mut Vec<DrawCmd>) {
+        let pos = self.pos();
         let n = self.trail.len();
         if n == 0 {
             out.push(DrawCmd::Point {
-                pos: self.pos,
+                pos,
                 brightness: 1.0,
                 size: self.draw_size,
             });
@@ -117,7 +145,7 @@ impl Ray {
         }
         out.push(DrawCmd::GradientSegment {
             from: self.trail[n - 1],
-            to: self.pos,
+            to: pos,
             brightness_from: trail_brightness(n - 1, n),
             brightness_to: 1.0,
             size: self.draw_size,
@@ -130,10 +158,6 @@ impl Ray {
 
     pub fn mark_as_absorbed(&mut self) {
         self.absorbed = true;
-    }
-
-    pub fn pos(&self) -> Vec3 {
-        self.pos
     }
 }
 
