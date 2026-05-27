@@ -63,9 +63,9 @@ impl BlackHole {
 
 pub struct Ray {
     pub r: f32,
-    pub theta: f32,
+    pub phi: f32,
     pub dr: f32,
-    pub dtheta: f32,
+    pub dphi: f32,
     pub draw_size: i32,
     trail: VecDeque<Vec3>,
     absorbed: bool,
@@ -77,16 +77,12 @@ impl Ray {
         let r = pos_polar.radius;
         let phi = pos_polar.phi;
         let dir_len = direction.length();
-        let (dr, dtheta) = if dir_len > 0.0 {
+        let (dr, dphi) = if dir_len > 0.0 {
             let nx = direction.x / dir_len;
             let ny = direction.y / dir_len;
             let dr = nx * phi.cos() + ny * phi.sin();
-            let dtheta = if r > 0.0 {
-                (-nx * phi.sin() + ny * phi.cos()) / r
-            } else {
-                0.0
-            };
-            (dr, dtheta)
+            let dphi = - phi.sin() / r;
+            (dr, dphi)
         } else {
             (0.0, 0.0)
         };
@@ -95,9 +91,9 @@ impl Ray {
         trail.push_back(pos);
         Self {
             r,
-            theta: phi,
+            phi,
             dr,
-            dtheta,
+            dphi,
             draw_size: 1,
             trail,
             absorbed: false,
@@ -107,7 +103,7 @@ impl Ray {
     pub fn step(&mut self, dl: f32) {
         let dt = C * dl;
         self.r += self.dr * dt;
-        self.theta += self.dtheta * dt;
+        self.phi += self.dphi * dt;
 
         self.trail.push_back(self.pos());
         while self.trail.len() > RAY_TRAIL_LEN {
@@ -117,8 +113,8 @@ impl Ray {
 
     pub fn pos(&self) -> Vec3 {
         Vec3::new(
-            self.r * self.theta.cos(),
-            self.r * self.theta.sin(),
+            self.r * self.phi.cos(),
+            self.r * self.phi.sin(),
             0.0,
         )
     }
